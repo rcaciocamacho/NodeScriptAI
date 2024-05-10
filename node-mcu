@@ -36,22 +36,6 @@ void sendNotification(String message) {
   http.end();
 }
 
-void notifyAlexa(String message) {
-  HTTPClient http;
-  http.begin(notifyMeURL);
-  http.addHeader("Content-Type", "application/json");
-  String jsonMessage = "{\"notification\":\"" + message + "\", \"accessCode\":\"" + notifyMeAPIKey + "\"}";
-  int httpResponseCode = http.POST(jsonMessage);
-  if (httpResponseCode > 0) {
-    String response = http.getString();
-    Serial.println("Notify Me response: " + response);
-  } else {
-    Serial.print("Notify Me error: ");
-    Serial.println(httpResponseCode);
-  }
-  http.end();
-}
-
 void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
@@ -78,7 +62,6 @@ void setup() {
     String relayState = (state ? "ON" : "OFF");
     String message = String(device_name) + " is now " + relayState;
     sendNotification(message); // Enviar a Gotify
-    notifyAlexa(message); // Enviar a Alexa
     switch (device_id) {
       case 0:
         digitalWrite(relayPin1, state ? HIGH : LOW);
