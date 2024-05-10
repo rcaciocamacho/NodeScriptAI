@@ -1,34 +1,44 @@
 from flask import Flask, request
+from datetime import datetime, timedelta
 import requests
-from telegram import Bot
 
 app = Flask(__name__)
-TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-CHAT_ID = "YOUR_CHAT_ID"
-OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
-bot = Bot(token=TELEGRAM_TOKEN)
+
+# Configuración de Gotify
+GOTIFY_URL = "https://gotify.yourserver.com"
+GOTIFY_TOKEN = "YourGotifyToken"
+last_seen = datetime.now()
 
 
-@app.route("/request_chatgpt", methods=["GET"])
-def handle_request():
-    prompt = "¿Qué hora es y cómo está el tiempo en Madrid?"
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    data = {
-        "model": "text-davinci-003",  # Use an appropriate model
-        "prompt": prompt,
-        "max_tokens": 100,
-    }
-    response = requests.post(
-        "https://api.openai.com/v1/engines/davinci/completions",
-        json=data,
-        headers=headers,
-    )
-    result = response.json()["choices"][0]["text"].strip()
-    bot.send_message(chat_id=CHAT_ID, text=result)
-    return f"Mensaje enviado a Telegram: {result}"
+def notify_gotify(message):
+    url = f"{GOTIFY_URL}/message?token={GOTIFY_TOKEN}"
+    data = {"title": "NodeMCU Status", "message": message, "priority": 5}
+    response = requests.post(url, json=data)
+    return response.text
+
+
+@app.route("/heartbeat", methods=["GET"])
+def heartbeat():
+    global last_seen
+    last_seen = datetime.now()
+    return "Heartbeat received"
+
+
+@app.before_first_request
+def activate_job():
+    def run_job():
+        global last_seen
+        while True:
+            time.sleep(300)  # Wait for 5 minutes
+            if datetime.now() > last_seen + timedelta(minutes=5):
+                message = "NodeMCU is offline!"
+                notify_gotify(message)
+                print(message)
+
+    from threading import Thread
+
+    thread = Thread(target=run_job)
+    thread.start()
 
 
 if __name__ == "__main__":

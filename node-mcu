@@ -2,7 +2,6 @@
 #include <ESP8266WiFi.h>
 #include <fauxmoESP.h>
 #include <ArduinoOTA.h>
-#include <ESP8266mDNS.h>
 #include <ESP8266HTTPClient.h>
 #include <TimeLib.h>
 #include <NTPClient.h>
@@ -24,7 +23,10 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600, 60000); // GMT+1 para Madrid
 
 // URL del servidor intermedio
-const char* serverURL = "http://yourserver.com/request_chatgpt";
+const char* serverURL = "http://192.168.0.12/request_chatgpt";
+
+// URL del endpoint de heartbeat
+const char* heartbeatURL = "http://192.168.0.12:9999/heartbeat";
 
 // FauxmoESP
 fauxmoESP fauxmo;
@@ -74,9 +76,9 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("WiFi connected");
-  
+
   timeClient.begin();
-  
+
   pinMode(relayPin1, OUTPUT);
   pinMode(relayPin2, OUTPUT);
   pinMode(relayPin3, OUTPUT);
@@ -131,21 +133,20 @@ void loop() {
   fauxmo.handle();
   ArduinoOTA.handle();
   timeClient.update();
-  // Ejecutar una vez al día a las 9:00
-  static int lastHour = -1; // Guarda la última hora de ejecución
-  int currentHour = timeClient.getHours();
-  if (currentHour == 9 && lastHour != 9) {
+  
+  static int lastMinute = -1;
+  int currentMinute = timeClient.getMinutes();
+  if (currentMinute % 5 == 0 && lastMinute != currentMinute) { // Every 5 minutes
     HTTPClient http;
-    http.begin(serverURL);  // Inicia la conexión con el servidor intermedio
-    int httpCode = http.GET();  // Realiza una petición GET
-    if (httpCode > 0) {  // Verifica que la respuesta sea correcta
+    http.begin(heartbeatURL);
+    int httpCode = http.GET();
+    if (httpCode > 0) {
       String response = http.getString();
-      Serial.println("Received response: " + response);
+      Serial.println("Heartbeat sent: " + response);
     } else {
       Serial.println("Error on HTTP request");
     }
-    http.end();  // Cierra la conexión
+    http.end();
+    lastMinute = currentMinute;
   }
-  lastHour = currentHour;  // Actualiza la última hora de ejecución para evitar múltiples llamadas
-  delay(10000);  // Espera 10 segundos para evitar múltiples ejecuciones cerca de las 9:00
 }
