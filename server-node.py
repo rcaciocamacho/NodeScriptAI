@@ -1,12 +1,19 @@
 from flask import Flask, request
 from datetime import datetime, timedelta
 import requests
+import os
+from dotenv import load_dotenv
+from threading import Thread
+import time
 
 app = Flask(__name__)
 
-# Configuración de Gotify
-GOTIFY_URL = "https://gotify.yourserver.com"
-GOTIFY_TOKEN = "YourGotifyToken"
+# Cargar las variables de entorno
+load_dotenv()
+
+# Configuración de Gotify a partir de variables de entorno
+GOTIFY_URL = os.getenv("GOTIFY_URL")
+GOTIFY_TOKEN = os.getenv("GOTIFY_TOKEN")
 last_seen = datetime.now()
 
 
@@ -34,8 +41,6 @@ def activate_job():
                 message = "NodeMCU is offline!"
                 notify_gotify(message)
                 print(message)
-
-    from threading import Thread
 
     thread = Thread(target=run_job)
     thread.start()
