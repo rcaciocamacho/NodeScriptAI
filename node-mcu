@@ -1,0 +1,151 @@
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <fauxmoESP.h>
+#include <ArduinoOTA.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266HTTPClient.h>
+#include <TimeLib.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
+// Configuración WiFi
+const char* ssid = "TU_SSID";
+const char* password = "TU_PASSWORD";
+
+// Configuración de Gotify
+const char* gotifyURL = "https://gotify.example.com/message?token=YOUR_APP_TOKEN";
+
+// Configuración para Notificaciones Alexa
+const char* notifyMeAPIKey = "YOUR_NOTIFY_ME_API_KEY";
+const char* notifyMeURL = "https://api.notifymyecho.com/v1/NotifyMe";
+
+// Configuración del servidor NTP
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600, 60000); // GMT+1 para Madrid
+
+// URL del servidor intermedio
+const char* serverURL = "http://yourserver.com/request_chatgpt";
+
+// FauxmoESP
+fauxmoESP fauxmo;
+
+// Pines de los relés
+const int relayPin1 = 5; // D1
+const int relayPin2 = 4; // D2
+const int relayPin3 = 0; // D3
+
+void sendNotification(String message) {
+  HTTPClient http;
+  http.begin(gotifyURL); // URL de Gotify
+  http.addHeader("Content-Type", "application/json");
+  String jsonMessage = "{\"message\":\"" + message + "\", \"priority\":5}";
+  int httpResponseCode = http.POST(jsonMessage);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Gotify response: " + response);
+  } else {
+    Serial.print("Gotify error: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
+}
+
+void notifyAlexa(String message) {
+  HTTPClient http;
+  http.begin(notifyMeURL);
+  http.addHeader("Content-Type", "application/json");
+  String jsonMessage = "{\"notification\":\"" + message + "\", \"accessCode\":\"" + notifyMeAPIKey + "\"}";
+  int httpResponseCode = http.POST(jsonMessage);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Notify Me response: " + response);
+  } else {
+    Serial.print("Notify Me error: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+  
+  timeClient.begin();
+  
+  pinMode(relayPin1, OUTPUT);
+  pinMode(relayPin2, OUTPUT);
+  pinMode(relayPin3, OUTPUT);
+  digitalWrite(relayPin1, LOW);
+  digitalWrite(relayPin2, LOW);
+  digitalWrite(relayPin3, LOW);
+
+  fauxmo.addDevice("Relay One");
+  fauxmo.addDevice("Relay Two");
+  fauxmo.addDevice("Relay Three");
+  fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
+    Serial.printf("[FAUXMO] Device #%d (%s) state: %s\n", device_id, device_name, state ? "ON" : "OFF");
+    String relayState = (state ? "ON" : "OFF");
+    String message = String(device_name) + " is now " + relayState;
+    sendNotification(message); // Enviar a Gotify
+    notifyAlexa(message); // Enviar a Alexa
+    switch (device_id) {
+      case 0:
+        digitalWrite(relayPin1, state ? HIGH : LOW);
+        break;
+      case 1:
+        digitalWrite(relayPin2, state ? HIGH : LOW);
+        break;
+      case 2:
+        digitalWrite(relayPin3, state ? HIGH : LOW);
+        break;
+    }
+  });
+
+  ArduinoOTA.begin();
+  ArduinoOTA.onStart([]() {
+    String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+}
+
+void loop() {
+  fauxmo.handle();
+  ArduinoOTA.handle();
+  timeClient.update();
+  // Ejecutar una vez al día a las 9:00
+  static int lastHour = -1; // Guarda la última hora de ejecución
+  int currentHour = timeClient.getHours();
+  if (currentHour == 9 && lastHour != 9) {
+    HTTPClient http;
+    http.begin(serverURL);  // Inicia la conexión con el servidor intermedio
+    int httpCode = http.GET();  // Realiza una petición GET
+    if (httpCode > 0) {  // Verifica que la respuesta sea correcta
+      String response = http.getString();
+      Serial.println("Received response: " + response);
+    } else {
+      Serial.println("Error on HTTP request");
+    }
+    http.end();  // Cierra la conexión
+  }
+  lastHour = currentHour;  // Actualiza la última hora de ejecución para evitar múltiples llamadas
+  delay(10000);  // Espera 10 segundos para evitar múltiples ejecuciones cerca de las 9:00
+}
