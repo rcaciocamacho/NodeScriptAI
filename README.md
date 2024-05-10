@@ -36,3 +36,8 @@ docker-compose build
 # Ejecutar el servidor en un contenedor
 docker-compose up
 ```
+
+## Para el servicio en python
+
+Es necesario renombrar el fichero template.Config.h a Config.h en el mismo directorio en el que se encuentra.
+Una vez hecho ésto, configuración las distintas variables y adaptarlas a nuestro entorno productivo. 
