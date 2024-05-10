@@ -6,27 +6,11 @@
 #include <TimeLib.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-
-// Configuración WiFi
-const char* ssid = "TU_SSID";
-const char* password = "TU_PASSWORD";
-
-// Configuración de Gotify
-const char* gotifyURL = "https://gotify.example.com/message?token=YOUR_APP_TOKEN";
-
-// Configuración para Notificaciones Alexa
-const char* notifyMeAPIKey = "YOUR_NOTIFY_ME_API_KEY";
-const char* notifyMeURL = "https://api.notifymyecho.com/v1/NotifyMe";
+#include "Config.h" 
 
 // Configuración del servidor NTP
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600, 60000); // GMT+1 para Madrid
-
-// URL del servidor intermedio
-const char* serverURL = "http://192.168.0.12/request_chatgpt";
-
-// URL del endpoint de heartbeat
-const char* heartbeatURL = "http://192.168.0.12:9999/heartbeat";
 
 // FauxmoESP
 fauxmoESP fauxmo;
