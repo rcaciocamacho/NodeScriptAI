@@ -27,3 +27,12 @@ venv\Scripts\activate
 # Activar el entorno virtual en Unix o MacOS
 source venv/bin/activate
 ```
+
+## Instrucciones para construir y ejecutar el contenedor
+```
+# Construir la imagen de Docker usando Docker Compose
+docker-compose build
+
+# Ejecutar el servidor en un contenedor
+docker-compose up
+```
