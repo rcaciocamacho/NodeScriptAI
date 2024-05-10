@@ -41,3 +41,8 @@ docker-compose up
 
 Es necesario renombrar el fichero template.Config.h a Config.h en el mismo directorio en el que se encuentra.
 Una vez hecho ésto, configuración las distintas variables y adaptarlas a nuestro entorno productivo. 
+
+## Para el docker de servicio intermedio en python:
+
+Es necesario renombrar el fichero sample.env a .env en el mismo directorio en el que se encuentra. 
+Una vez hecho ésto, configuración las distintas variables y adaptarlas a nuestro entorno productivo. 
